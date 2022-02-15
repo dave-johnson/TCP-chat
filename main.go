@@ -108,6 +108,8 @@ func handleConnection(c net.Conn) {
 		switch {
 		case d[0] == JOIN:
 			from, _ = join(d, c)
+		case from == "":
+			c.Write([]byte("You must JOIN and enter your user name before posting messages.\n"))
 		default:
 			broadcast(netData, from)
 		}
