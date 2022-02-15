@@ -13,3 +13,4 @@ This is a very simple chat app using TCP.  A user will broadcast their messages 
 
 ## TODO 
 * Don't allow the same username to be entered on two sessions.
+* Store Admin password in an environment variable rather than being hard-coded.
