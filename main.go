@@ -104,8 +104,31 @@ func broadcast(msg string, from string) {
 	}
 }
 
+func help(from string, c net.Conn) {
+	msg := fmt.Sprintf("JOIN - You must join before you can start posting messages.\n" +
+		"\tjoin (username)\n" +
+		"\tjoin (username) -replace __still needs to be implemented__\n" +
+		"WHOAMI - Display your username\n")
+
+	if from == ADMIN {
+		msg = fmt.Sprintf("%sDEBUG - This will print debug messages in the server\n", msg)
+	}
+
+	c.Write([]byte(string(msg)))
+}
+
+func whoami(you string, c net.Conn) {
+	if you == "" {
+		c.Write([]byte(string("I don't know who you are.  Please join.")))
+	} else {
+		c.Write([]byte(string("You are " + you + "\n")))
+	}
+}
+
 func handleConnection(c net.Conn) {
 	var from = string("")
+	c.Write([]byte("Please use the JOIN command to start using this chat.\n" +
+		"You can use HELP to see other commands.\n"))
 
 	for {
 		netData, err := bufio.NewReader(c).ReadString('\n')
@@ -121,14 +144,18 @@ func handleConnection(c net.Conn) {
 		}
 
 		d := strings.Split(strings.TrimRight(netData, "\n"), " ")
-		cmd := d[0]
+		cmd := strings.ToLower(d[0])
 		switch {
+		case cmd == HELP:
+			help(from, c)
 		case cmd == JOIN:
 			from, _ = join(d, c)
 		case from == "":
 			c.Write([]byte("You must JOIN and enter your user name before posting messages.\n"))
 		case from == ADMIN && cmd == DEBUG:
 			toggleDebug()
+		case cmd == WHOAMI:
+			whoami(from, c)
 		default:
 			broadcast(netData, from)
 		}
