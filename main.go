@@ -9,9 +9,22 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+	"strings"
+)
+
+const (
+	// chat commands
+	JOIN   = "join"
+	WHOAMI = "whoami"
+	HELP   = "help"
+
+	// admin is a special user
+	ADMIN = "admin"
+	PWD   = "password" // this will come from an environemnt variable later
 )
 
 type Client struct {
@@ -21,6 +34,31 @@ type Client struct {
 
 // list of connected clients
 var clients = []Client{}
+
+func join(d []string, c net.Conn) (string, error) {
+	if len(d) == 1 {
+		c.Write([]byte("You need to enter your username\n"))
+		return "", errors.New("invalid join statement")
+	}
+
+	if d[1] == ADMIN {
+		if len(d) == 2 {
+			c.Write([]byte("You need to enter a password\n"))
+			return "", errors.New("invalid join statement")
+		}
+		if d[2] != PWD {
+			c.Write([]byte("You entered the wrong password\n"))
+			return "", errors.New("invalid join statement")
+		}
+		// warning message
+		if len(d) > 3 {
+			c.Write([]byte("Values after password will be ignored\n"))
+		}
+	}
+
+	addClient(d[1], c)
+	return d[1], nil
+}
 
 func addClient(n string, c net.Conn) {
 	fmt.Printf("adding client {%s} from %s\n", n, c.RemoteAddr().String())
@@ -32,25 +70,26 @@ func addClient(n string, c net.Conn) {
 }
 
 func removeClient(c net.Conn) {
-	fmt.Println("removing client:", c.RemoteAddr().String())
 	for i, _ := range clients {
 		if clients[i].Conn.RemoteAddr() == c.RemoteAddr() {
+			fmt.Println("removing client:", clients[i].Name)
 			clients = append(clients[:i], clients[i+1:]...)
 			break
 		}
 	}
 }
 
-func broadcast(msg string, from net.Conn) {
+func broadcast(msg string, from string) {
+	fmt.Println("------ broadcast from ", from)
 	for _, c := range clients {
-		if c.Conn != from {
-			c.Conn.Write([]byte(string("<" + c.Name + "> " + msg)))
+		if c.Name != from {
+			c.Conn.Write([]byte(string("<" + from + "> " + msg)))
 		}
 	}
 }
 
 func handleConnection(c net.Conn) {
-	addClient(c.RemoteAddr().String(), c)
+	var from = string("")
 
 	for {
 		netData, err := bufio.NewReader(c).ReadString('\n')
@@ -60,7 +99,19 @@ func handleConnection(c net.Conn) {
 			return
 		}
 
-		broadcast(netData, c)
+		// don't broadcast empty messages
+		if netData == "\n" {
+			continue
+		}
+
+		d := strings.Split(strings.TrimRight(netData, "\n"), " ")
+		switch {
+		case d[0] == JOIN:
+			from, _ = join(d, c)
+		default:
+			broadcast(netData, from)
+		}
+
 	}
 }
 
