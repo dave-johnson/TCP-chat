@@ -21,6 +21,7 @@ const (
 	JOIN   = "join"
 	WHOAMI = "whoami"
 	HELP   = "help"
+	DEBUG  = "debug"
 
 	// admin is a special user
 	ADMIN = "admin"
@@ -34,6 +35,17 @@ type Client struct {
 
 // list of connected clients
 var clients = []Client{}
+var debugMode = false
+
+func toggleDebug() {
+	debugMode = !debugMode
+}
+
+func debugMessage(msg string) {
+	if debugMode {
+		fmt.Println(msg)
+	}
+}
 
 func join(d []string, c net.Conn) (string, error) {
 	if len(d) == 1 {
@@ -61,7 +73,9 @@ func join(d []string, c net.Conn) (string, error) {
 }
 
 func addClient(n string, c net.Conn) {
-	fmt.Printf("adding client {%s} from %s\n", n, c.RemoteAddr().String())
+	m := fmt.Sprintf("adding client {%s} from %s\n", n, c.RemoteAddr().String())
+	debugMessage(m)
+
 	client := Client{
 		Conn: c,
 		Name: n,
@@ -80,7 +94,9 @@ func removeClient(c net.Conn) {
 }
 
 func broadcast(msg string, from string) {
-	fmt.Println("------ broadcast from ", from)
+	m := fmt.Sprintf("------ broadcast from %v", from)
+	debugMessage(m)
+
 	for _, c := range clients {
 		if c.Name != from {
 			c.Conn.Write([]byte(string("<" + from + "> " + msg)))
@@ -105,11 +121,14 @@ func handleConnection(c net.Conn) {
 		}
 
 		d := strings.Split(strings.TrimRight(netData, "\n"), " ")
+		cmd := d[0]
 		switch {
-		case d[0] == JOIN:
+		case cmd == JOIN:
 			from, _ = join(d, c)
 		case from == "":
 			c.Write([]byte("You must JOIN and enter your user name before posting messages.\n"))
+		case from == ADMIN && cmd == DEBUG:
+			toggleDebug()
 		default:
 			broadcast(netData, from)
 		}
