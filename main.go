@@ -14,18 +14,27 @@ import (
 	"os"
 )
 
-// list of connected clients
-var clients = []net.Conn{}
+type Client struct {
+	Conn net.Conn
+	Name string
+}
 
-func addClient(c net.Conn) {
-	fmt.Println("adding client:", c.RemoteAddr().String())
-	clients = append(clients, c)
+// list of connected clients
+var clients = []Client{}
+
+func addClient(n string, c net.Conn) {
+	fmt.Printf("adding client {%s} from %s\n", n, c.RemoteAddr().String())
+	client := Client{
+		Conn: c,
+		Name: n,
+	}
+	clients = append(clients, client)
 }
 
 func removeClient(c net.Conn) {
 	fmt.Println("removing client:", c.RemoteAddr().String())
 	for i, _ := range clients {
-		if clients[i] == c {
+		if clients[i].Conn.RemoteAddr() == c.RemoteAddr() {
 			clients = append(clients[:i], clients[i+1:]...)
 			break
 		}
@@ -34,14 +43,14 @@ func removeClient(c net.Conn) {
 
 func broadcast(msg string, from net.Conn) {
 	for _, c := range clients {
-		if c != from {
-			c.Write([]byte(string("< " + msg)))
+		if c.Conn != from {
+			c.Conn.Write([]byte(string("<" + c.Name + "> " + msg)))
 		}
 	}
 }
 
 func handleConnection(c net.Conn) {
-	addClient(c)
+	addClient(c.RemoteAddr().String(), c)
 
 	for {
 		netData, err := bufio.NewReader(c).ReadString('\n')
