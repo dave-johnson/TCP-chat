@@ -35,10 +35,9 @@ func removeClient(c net.Conn) {
 func broadcast(msg string, from net.Conn) {
 	for _, c := range clients {
 		if c != from {
-			c.Write([]byte(string(msg)))
+			c.Write([]byte(string("< " + msg)))
 		}
 	}
-
 }
 
 func handleConnection(c net.Conn) {
